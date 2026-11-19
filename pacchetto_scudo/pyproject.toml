@@ -1,0 +1,103 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "scudo-waf"
+version = "1.0.0"
+description = "AI-Powered Hybrid Web Application Firewall (Regex + Cache + ML) for Python APIs and LLM applications"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [
+    { name = "Mirko Rainone", email = "mirkorainone@users.noreply.github.com" },
+]
+keywords = [
+    "waf",
+    "security",
+    "fastapi",
+    "flask",
+    "django",
+    "ai",
+    "llm",
+    "prompt-injection",
+    "cybersecurity",
+    "xss",
+    "sql-injection",
+    "firewall",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+    "Framework :: FastAPI",
+    "Framework :: Flask",
+    "Framework :: Django",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "starlette>=0.27.0",
+    "cachetools>=5.0.0",
+    "scikit-learn>=1.3.0",
+    "joblib>=1.3.0",
+]
+
+[project.optional-dependencies]
+telemetry = ["httpx>=0.24.0"]
+proxy = ["httpx>=0.24.0", "uvicorn>=0.24.0"]
+all = ["httpx>=0.24.0", "uvicorn>=0.24.0"]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+    "pytest-cov>=4.0",
+    "httpx>=0.24.0",
+    "uvicorn>=0.24.0",
+    "fastapi>=0.100.0",
+    "ruff>=0.4.0",
+    "mypy>=1.8",
+    "build>=1.0",
+    "twine>=5.0",
+]
+
+[project.scripts]
+scudo-waf = "scudo_waf.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/MirkoRainone/scudo-waf"
+Documentation = "https://github.com/MirkoRainone/scudo-waf#readme"
+Repository = "https://github.com/MirkoRainone/scudo-waf"
+Issues = "https://github.com/MirkoRainone/scudo-waf/issues"
+
+[tool.setuptools.packages.find]
+include = ["scudo_waf*"]
+
+[tool.setuptools.package-data]
+scudo_waf = ["py.typed", "models/*.pkl", "models/*.json"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4"]
+ignore = ["E501", "N803", "N806", "N999", "B905"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

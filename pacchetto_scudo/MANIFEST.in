@@ -1,0 +1,4 @@
+include LICENSE
+include README.md
+include scudo_waf/py.typed
+recursive-include scudo_waf/models *.pkl *.json

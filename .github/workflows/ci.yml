@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Run ruff lint
+        run: ruff check pacchetto_scudo/scudo_waf pacchetto_scudo/tests ai_detector ai_trainer Dashboard_scudo Landing_Scudo tests benchmarks
+
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package and mypy
+        run: |
+          pip install -e "./pacchetto_scudo[dev]"
+          mypy pacchetto_scudo/scudo_waf
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          pip install -e "./pacchetto_scudo[dev]"
+          pip install -r ai_detector/requirements.txt
+          pip install -r Landing_Scudo/requirements.txt
+      - name: Run core package tests with coverage
+        run: |
+          cd pacchetto_scudo
+          pytest tests/ -v --cov=scudo_waf --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+      - name: Run service integration tests
+        run: python -m unittest tests/test_services_integration.py -v
+      - name: Upload coverage
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          file: pacchetto_scudo/coverage.xml
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install build & twine
+        run: pip install build twine
+      - name: Build and verify distribution
+        run: |
+          cd pacchetto_scudo
+          python -m build
+          twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: scudo-waf-dist
+          path: pacchetto_scudo/dist/

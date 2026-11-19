@@ -1,0 +1,61 @@
+services:
+  waf-api:
+    build:
+      context: .
+      dockerfile: ai_detector/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      SCUDO_STORAGE_MODE: ${SCUDO_STORAGE_MODE:-sqlite}
+      SCUDO_SQLITE_PATH: /app/data/scudo_control_plane.db
+      SCUDO_DEMO_API_KEY: ${SCUDO_DEMO_API_KEY:-sk_test_default}
+      SCUDO_ADMIN_SECRET: ${SCUDO_ADMIN_SECRET:-}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_KEY: ${SUPABASE_KEY:-}
+    volumes:
+      - scudo_data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dashboard_scudo/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      SCUDO_API_URL: http://waf-api:8000
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_KEY: ${SUPABASE_KEY:-}
+    depends_on:
+      waf-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  landing:
+    build:
+      context: .
+      dockerfile: Landing_Scudo/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      WAF_API_KEY: ${WAF_API_KEY:-sk_test_default}
+      SCUDO_API_URL: http://waf-api:8000
+      SCUDO_ADMIN_SECRET: ${SCUDO_ADMIN_SECRET:-}
+      DASHBOARD_URL: http://localhost:8501
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_KEY: ${SUPABASE_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PRO_PRICE_ID: ${STRIPE_PRO_PRICE_ID:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    depends_on:
+      waf-api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  scudo_data:

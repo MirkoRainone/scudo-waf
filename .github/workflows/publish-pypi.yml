@@ -1,0 +1,46 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/scudo-waf
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build, test & verification tools
+        run: |
+          pip install -e "./pacchetto_scudo[dev]"
+          pip install build twine
+
+      - name: Run full package tests before release
+        run: |
+          cd pacchetto_scudo
+          pytest tests/ -v --cov=scudo_waf --cov-fail-under=80
+
+      - name: Build wheel and source distribution
+        run: |
+          cd pacchetto_scudo
+          rm -rf dist/
+          python -m build
+          twine check dist/*
+
+      - name: Publish package to PyPI via Trusted Publisher
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: pacchetto_scudo/dist/
