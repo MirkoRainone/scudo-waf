@@ -4,4 +4,4 @@ plotly>=5.18.0
 httpx>=0.24.0
 supabase>=2.0.0
 python-dotenv>=1.0.0
-scudo-waf>=1.0.0
+./pacchetto_scudo
