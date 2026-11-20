@@ -409,54 +409,73 @@
         </div>
     </section>
 
-    <!-- FORM DI ATTIVAZIONE API KEY -->
+    <!-- FORM DI ATTIVAZIONE API KEY (CON EMAIL TRANSAZIONALE OBBLIGATORIA) -->
     <section id="form-iscrizione" class="waitlist-section">
         <div class="container text-center">
             <div class="waitlist-box">
-                <span class="badge-pro mb-2 d-inline-block">Provisioning Istantaneo</span>
+                <span class="badge-pro mb-2 d-inline-block">Provisioning Istantaneo &amp; Sicuro</span>
                 <h3 class="fw-bold mb-2 mt-1">Genera la tua API Key Scudo WAF</h3>
-                <p class="text-muted mb-4">Attiva subito l'accesso alla Console Analytics e al Control Plane. Per il piano Free non è richiesta alcuna carta di credito.</p>
+                <p class="text-muted mb-4">L'indirizzo email è obbligatorio per registrare la tua licenza, inviarti la API Key personale e collegare il pagamento Stripe in sicurezza.</p>
 
                 <form action="/api/v1/iscriviti" method="post" class="text-start">
                     <label class="form-label fw-bold small text-muted text-uppercase mb-2">1. Seleziona il Piano:</label>
                     <div class="row g-3 mb-4">
                         <div class="col-md-4">
-                            <input type="radio" id="piano_free" name="piano_scelto" value="free" class="radio-card-input" checked>
+                            <input type="radio" id="piano_free" name="piano_scelto" value="free" class="radio-card-input" checked onchange="syncPlanUI('free')">
                             <label for="piano_free" class="radio-card-label free-label w-100">
                                 <span><i class="bi bi-shield me-1"></i> Free (€0)</span>
                                 <i class="bi bi-check-circle-fill fs-5"></i>
                             </label>
                         </div>
                         <div class="col-md-4">
-                            <input type="radio" id="piano_pro" name="piano_scelto" value="pro" class="radio-card-input">
+                            <input type="radio" id="piano_pro" name="piano_scelto" value="pro" class="radio-card-input" onchange="syncPlanUI('pro')">
                             <label for="piano_pro" class="radio-card-label pro-label w-100">
                                 <span><i class="bi bi-layers-fill me-1"></i> Pro (€29)</span>
                                 <i class="bi bi-check-circle-fill fs-5"></i>
                             </label>
                         </div>
                         <div class="col-md-4">
-                            <input type="radio" id="piano_agency" name="piano_scelto" value="agency" class="radio-card-input">
+                            <input type="radio" id="piano_agency" name="piano_scelto" value="agency" class="radio-card-input" onchange="syncPlanUI('agency')">
                             <label for="piano_agency" class="radio-card-label agency-label w-100">
                                 <span><i class="bi bi-building-fill-check me-1"></i> Agency (€149)</span>
                                 <i class="bi bi-check-circle-fill fs-5"></i>
                             </label>
                         </div>
                     </div>
-                    <div id="checkout-hint" class="alert alert-info py-2 small d-none"></div>
+                    <div id="checkout-hint" class="alert alert-primary py-2 small d-none"></div>
 
-                    <label class="form-label fw-bold small text-muted text-uppercase mb-2">2. Indirizzo Email Tecnico o Aziendale:</label>
+                    <label for="transactional-email" class="form-label fw-bold small text-muted text-uppercase mb-2">
+                        2. Email Transazionale Obbligatoria <span class="text-primary">(dove riceverai l'API Key)</span>:
+                    </label>
                     <div class="d-flex flex-column flex-sm-row gap-2">
-                        <input type="email" name="email" class="form-control input-email flex-grow-1" required placeholder="sicurezza@azienda.it">
-                        <button type="submit" class="btn btn-trust text-nowrap px-4 py-3">
+                        <input id="transactional-email" type="email" name="email" class="form-control input-email flex-grow-1" required placeholder="tua-email@azienda.it">
+                        <button id="submit-signup-btn" type="submit" class="btn btn-trust text-nowrap px-4 py-3">
                             Genera API Key <i class="bi bi-arrow-right ms-1"></i>
                         </button>
                     </div>
                     <div class="d-flex flex-wrap justify-content-center gap-4 text-muted mt-3 mb-0" style="font-size: 0.8rem;">
+                        <span><i class="bi bi-envelope-check-fill text-emerald me-1"></i> API Key associata alla tua email</span>
                         <span><i class="bi bi-lock-fill text-emerald me-1"></i> Chiavi cifrate SHA-256</span>
                         <span><i class="bi bi-check-circle-fill text-emerald me-1"></i> Pagamenti protetti da Stripe</span>
-                        <span><i class="bi bi-shield-check text-emerald me-1"></i> Conforme GDPR</span>
                     </div>
                 </form>
+
+                <!-- Accesso Portale Clienti Stripe -->
+                <div id="gestione-abbonamento" class="mt-4 pt-4 border-top text-start">
+                    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-2">
+                        <div>
+                            <div class="fw-bold small text-dark"><i class="bi bi-credit-card-2-front text-primary me-1"></i> Sei già cliente Pro o Agency?</div>
+                            <div class="text-muted" style="font-size: 0.8rem;">Accedi al Portale Clienti Stripe per scaricare le fatture, cambiare carta o disdire con 1 clic.</div>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-column flex-sm-row gap-2">
+                        <input id="portal-email" type="email" class="form-control form-control-sm input-email flex-grow-1" placeholder="Inserisci l'email usata su Stripe...">
+                        <button type="button" class="btn btn-outline-slate btn-sm text-nowrap px-3" onclick="openCustomerPortal()">
+                            <i class="bi bi-box-arrow-up-right me-1"></i> Gestisci Abbonamento &amp; Fatture
+                        </button>
+                    </div>
+                    <div id="portal-feedback" class="small mt-2 d-none"></div>
+                </div>
             </div>
         </div>
     </section>
@@ -536,6 +555,7 @@
                     <div class="d-flex flex-wrap justify-content-md-end gap-4 small fw-semibold">
                         <a href="#architettura">Architettura</a>
                         <a href="#playground">Console di Verifica</a>
+                        <a href="#gestione-abbonamento">Portale Clienti Stripe</a>
                         <a href="/video">Video Presentazione</a>
                         <a href="/terms">Termini di Servizio &amp; SLA</a>
                         <a href="/privacy">Privacy Policy (GDPR)</a>
@@ -566,34 +586,80 @@
             }
         }
 
-        async function scegliPiano(piano) {
+        function syncPlanUI(piano) {
+            const hintEl = document.getElementById('checkout-hint');
+            const submitBtn = document.getElementById('submit-signup-btn');
+            if (piano === 'pro' || piano === 'agency') {
+                const label = piano === 'agency' ? 'Agency / Team (€149/mese)' : 'Pro Cloud (€29/mese)';
+                if (hintEl) {
+                    hintEl.innerHTML = '<i class="bi bi-envelope-exclamation me-1"></i> <strong>Email transazionale obbligatoria:</strong> inserisci il tuo indirizzo qui sotto per associare e ricevere la tua API Key prima di completare il pagamento per il piano <strong>' + escapeHtml(label) + '</strong> su Stripe.';
+                    hintEl.classList.remove('d-none');
+                }
+                if (submitBtn) {
+                    submitBtn.innerHTML = 'Salva Email &amp; Vai a Stripe <i class="bi bi-arrow-right ms-1"></i>';
+                }
+            } else {
+                if (hintEl) hintEl.classList.add('d-none');
+                if (submitBtn) {
+                    submitBtn.innerHTML = 'Genera API Key Free <i class="bi bi-arrow-right ms-1"></i>';
+                }
+            }
+        }
+
+        function scegliPiano(piano) {
             const radioId = piano === 'agency' ? 'piano_agency' : (piano === 'pro' ? 'piano_pro' : 'piano_free');
             document.getElementById(radioId).checked = true;
+            syncPlanUI(piano);
 
-            const hintEl = document.getElementById('checkout-hint');
-            if (piano === 'pro' || piano === 'agency') {
-                try {
-                    const resp = await fetch('/api/v1/checkout', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ plan: piano }),
-                    });
-                    const data = await resp.json();
-                    if (data.status === 'ready' && data.checkout_url) {
-                        window.location.href = data.checkout_url;
-                        return;
-                    }
-                    if (hintEl && data.message) {
-                        hintEl.textContent = data.message;
-                        hintEl.classList.remove('d-none');
-                    }
-                } catch (e) {
-                    // Fallback al form di attivazione istantanea
-                }
-            } else if (hintEl) {
-                hintEl.classList.add('d-none');
+            const formSection = document.getElementById('form-iscrizione');
+            if (formSection) formSection.scrollIntoView({ behavior: 'smooth' });
+            const emailInput = document.getElementById('transactional-email');
+            if (emailInput) {
+                setTimeout(() => emailInput.focus(), 350);
             }
-            document.getElementById('form-iscrizione').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        async function openCustomerPortal() {
+            const emailEl = document.getElementById('portal-email');
+            const feedbackEl = document.getElementById('portal-feedback');
+            const email = emailEl ? emailEl.value.trim() : '';
+            if (!email || !email.includes('@')) {
+                if (feedbackEl) {
+                    feedbackEl.className = 'small mt-2 text-danger fw-semibold';
+                    feedbackEl.textContent = 'Inserisci un indirizzo email valido per aprire il Portale Clienti Stripe.';
+                }
+                if (emailEl) emailEl.focus();
+                return;
+            }
+            if (feedbackEl) {
+                feedbackEl.className = 'small mt-2 text-muted';
+                feedbackEl.textContent = 'Apertura Portale Clienti Stripe in corso...';
+            }
+            try {
+                const resp = await fetch('/api/v1/stripe/portal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email }),
+                });
+                const data = await resp.json();
+                if (data.status === 'ready' && data.portal_url) {
+                    window.open(data.portal_url, '_blank');
+                    if (feedbackEl) {
+                        feedbackEl.className = 'small mt-2 text-success fw-semibold';
+                        feedbackEl.textContent = 'Portale Stripe aperto in una nuova scheda.';
+                    }
+                    return;
+                }
+                if (feedbackEl) {
+                    feedbackEl.className = 'small mt-2 text-primary fw-semibold';
+                    feedbackEl.textContent = data.message || 'Portale non disponibile per questa email.';
+                }
+            } catch (e) {
+                if (feedbackEl) {
+                    feedbackEl.className = 'small mt-2 text-danger';
+                    feedbackEl.textContent = 'Errore di rete durante la connessione al Portale Clienti Stripe.';
+                }
+            }
         }
 
         function setPreset(text) {

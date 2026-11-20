@@ -24,9 +24,12 @@ env/
 .env.*
 !.env.example
 
-# Trained binaries (keep packaged reference models only)
+# Trained binaries & local SQLite databases (keep packaged reference models only)
 *.pkl
 !pacchetto_scudo/scudo_waf/models/*.pkl
+*.db
+*.sqlite
+*.sqlite3
 
 # IDE & OS
 .vscode/

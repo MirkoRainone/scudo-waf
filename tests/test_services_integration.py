@@ -248,7 +248,9 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
 
         prev_wh_secret = os.environ.get("STRIPE_WEBHOOK_SECRET")
         prev_api_url = os.environ.get("SCUDO_API_URL")
+        prev_storage = os.environ.get("SCUDO_STORAGE_MODE")
         os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_integration_secret_123"
+        os.environ["SCUDO_STORAGE_MODE"] = "memory"
         os.environ.pop("SCUDO_API_URL", None)
 
         try:
@@ -263,7 +265,7 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                 self.assertIn("Referrer-Policy", r_home.headers)
                 self.assertIn("ScudoWAF", r_home.text)
 
-                # 2. Legal pages (/terms & /privacy)
+                # 2. Legal pages (/terms & /privacy) + Silent presentation (/video)
                 r_terms = await client.get("/terms")
                 self.assertEqual(r_terms.status_code, 200)
                 self.assertIn("Fail-Open", r_terms.text)
@@ -275,6 +277,7 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                 r_vid = await client.get("/video")
                 self.assertEqual(r_vid.status_code, 200)
                 self.assertIn("SCUDO WAF PLATFORM", r_vid.text)
+                self.assertNotIn("speechSynthesis", r_vid.text)
 
                 # 3. Health endpoint
                 r_health = await client.get("/health")
@@ -320,9 +323,18 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(r_agency_signup.json()["api_key"].startswith("sk_live_"))
                 self.assertEqual(r_agency_signup.json()["monthly_quota"], 2_500_000)
 
-                # Payment Link Checkout resolution
+                # Mandatory transactional email check on /api/v1/checkout
+                r_chk_no_email = await client.post(
+                    "/api/v1/checkout",
+                    json={"plan": "pro"},
+                )
+                self.assertEqual(r_chk_no_email.status_code, 422)
+
+                # Payment Link Checkout & Customer Portal resolution
                 prev_pay_link = os.environ.get("STRIPE_AGENCY_PAYMENT_LINK")
+                prev_portal_url = os.environ.get("STRIPE_CUSTOMER_PORTAL_URL")
                 os.environ["STRIPE_AGENCY_PAYMENT_LINK"] = "https://buy.stripe.com/test_agency_plan"
+                os.environ["STRIPE_CUSTOMER_PORTAL_URL"] = "https://billing.stripe.com/p/login/test_123"
                 try:
                     r_chk = await client.post(
                         "/api/v1/checkout",
@@ -331,11 +343,23 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(r_chk.status_code, 200)
                     self.assertEqual(r_chk.json()["status"], "ready")
                     self.assertIn("prefilled_email=cto%40agency.io", r_chk.json()["checkout_url"])
+
+                    r_portal = await client.post(
+                        "/api/v1/stripe/portal",
+                        json={"email": "cto@agency.io"},
+                    )
+                    self.assertEqual(r_portal.status_code, 200)
+                    self.assertEqual(r_portal.json()["status"], "ready")
+                    self.assertIn("prefilled_email=cto%40agency.io", r_portal.json()["portal_url"])
                 finally:
                     if prev_pay_link is None:
                         os.environ.pop("STRIPE_AGENCY_PAYMENT_LINK", None)
                     else:
                         os.environ["STRIPE_AGENCY_PAYMENT_LINK"] = prev_pay_link
+                    if prev_portal_url is None:
+                        os.environ.pop("STRIPE_CUSTOMER_PORTAL_URL", None)
+                    else:
+                        os.environ["STRIPE_CUSTOMER_PORTAL_URL"] = prev_portal_url
 
                 r_form = await client.post(
                     "/api/v1/iscriviti",
@@ -343,6 +367,15 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(r_form.status_code, 200)
                 self.assertIn("sk_free_", r_form.text)
+
+                # Verify SQLite persistence in Landing API database
+                from app.routers import api as landing_api_mod
+
+                with landing_api_mod._DB_LOCK:
+                    keys_cnt = landing_api_mod._db_conn.execute("SELECT COUNT(*) FROM api_keys").fetchone()[0]
+                    waitlist_cnt = landing_api_mod._db_conn.execute("SELECT COUNT(*) FROM waitlist").fetchone()[0]
+                self.assertGreaterEqual(keys_cnt, 3)
+                self.assertGreaterEqual(waitlist_cnt, 4)
 
                 # 7. Signed Stripe Webhook lifecycle (reject unsigned, process valid upgrade/downgrade)
                 evt_upgrade = json.dumps(
@@ -395,6 +428,10 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                 os.environ["STRIPE_WEBHOOK_SECRET"] = prev_wh_secret
             if prev_api_url is not None:
                 os.environ["SCUDO_API_URL"] = prev_api_url
+            if prev_storage is None:
+                os.environ.pop("SCUDO_STORAGE_MODE", None)
+            else:
+                os.environ["SCUDO_STORAGE_MODE"] = prev_storage
 
 
 if __name__ == "__main__":

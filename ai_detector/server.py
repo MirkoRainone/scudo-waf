@@ -47,31 +47,32 @@ MAX_REQUESTS_PER_MINUTE = int(os.environ.get("SCUDO_RATE_LIMIT_PER_MINUTE", "120
 ADMIN_SECRET = os.environ.get("SCUDO_ADMIN_SECRET", "").strip()
 
 supabase_client: Any = None
-ACTIVE_STORAGE = "memory"
+ACTIVE_STORAGE = "sqlite"
 
-if STORAGE_MODE_ENV not in {"memory", "sqlite"} and SUPABASE_URL and SUPABASE_KEY and "your-project" not in SUPABASE_URL:
+if STORAGE_MODE_ENV == "memory":
+    ACTIVE_STORAGE = "memory"
+    logger.info("Running in in-memory SQLite storage mode (demo/CI).")
+elif STORAGE_MODE_ENV not in {"memory", "sqlite"} and SUPABASE_URL and SUPABASE_KEY and "your-project" not in SUPABASE_URL:
     try:
         from supabase import create_client
 
         supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
         ACTIVE_STORAGE = "supabase"
-        logger.info("Connected to Supabase backend.")
+        logger.info("Connected to Supabase backend (with local SQLite persistence).")
     except Exception as exc:
         if STORAGE_MODE_ENV == "supabase":
             raise RuntimeError(f"Supabase storage explicitly requested but failed: {exc}") from exc
-        logger.warning("Supabase unavailable (%s); falling back to SQLite/memory storage.", exc)
+        ACTIVE_STORAGE = "sqlite"
+        logger.warning("Supabase unavailable (%s); falling back to persistent SQLite storage (%s).", exc, SQLITE_PATH)
 elif STORAGE_MODE_ENV == "supabase":
     raise ValueError("SCUDO_STORAGE_MODE=supabase requires SUPABASE_URL and SUPABASE_KEY.")
-elif STORAGE_MODE_ENV == "sqlite":
+else:
     ACTIVE_STORAGE = "sqlite"
     logger.info("Running in persistent SQLite storage mode (%s).", SQLITE_PATH)
-else:
-    ACTIVE_STORAGE = "memory"
-    logger.info("Running in in-memory SQLite storage mode (demo/local/CI).")
 
 storage = ScudoStorage(
     mode=ACTIVE_STORAGE,
-    sqlite_path=SQLITE_PATH if ACTIVE_STORAGE == "sqlite" else None,
+    sqlite_path=SQLITE_PATH if ACTIVE_STORAGE != "memory" else None,
     supabase_client=supabase_client,
 )
 storage.ensure_seed_key(DEMO_API_KEY, email="demo@scudo-waf.dev", plan="pro")

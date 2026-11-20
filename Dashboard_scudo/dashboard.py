@@ -32,14 +32,17 @@ st.set_page_config(
 st.markdown(
     """
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* Force crisp high-contrast light surface regardless of OS dark mode */
+    /* Enterprise Trust-First Light Surface matching Scudo WAF Landing */
     .stApp, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
-        background-color: #f1f5f9 !important;
+        background: radial-gradient(110% 60% at 50% 0%, #eff6ff 0%, #f8fafc 58%, #f8fafc 100%) !important;
         color: #0f172a !important;
+        font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
     }
     .block-container {
         padding-top: 2rem !important;
@@ -47,30 +50,32 @@ st.markdown(
     }
 
     h1, h2, h3, h4, h5, h6 {
-        color: #0f172a !important;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        color: #0b172a !important;
+        font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
         font-weight: 800 !important;
-        letter-spacing: -0.4px;
+        letter-spacing: -0.5px;
     }
 
-    /* Typography & Labels */
     p, span, label, li, div[data-testid="stMarkdownContainer"] {
         color: #1e293b;
+    }
+    code, pre {
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace !important;
     }
     [data-testid="stCaptionContainer"], .stCaption {
         color: #475569 !important;
         font-weight: 500 !important;
     }
     [data-testid="stWidgetLabel"] label, [data-testid="stWidgetLabel"] p {
-        color: #0f172a !important;
+        color: #0b172a !important;
         font-weight: 600 !important;
     }
     [data-testid="stRadio"] label span, [data-testid="stCheckbox"] label span {
-        color: #0f172a !important;
+        color: #0b172a !important;
         font-weight: 500 !important;
     }
 
-    /* High-contrast Tabs */
+    /* Institutional Tabs */
     [data-testid="stTabs"] [data-baseweb="tab-list"] {
         gap: 8px;
         background-color: #e2e8f0;
@@ -88,67 +93,71 @@ st.markdown(
     }
     [data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
         background-color: #ffffff !important;
-        color: #059669 !important;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08) !important;
-        border-bottom: 3px solid #059669 !important;
+        color: #1d4ed8 !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08) !important;
+        border-bottom: 3px solid #1d4ed8 !important;
     }
 
     /* Metric KPI Cards */
     [data-testid="stMetric"] {
         background-color: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
+        border: 1px solid #e2e8f0 !important;
+        border-top: 3px solid #1d4ed8 !important;
         padding: 18px 20px !important;
-        border-radius: 12px !important;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05) !important;
+        border-radius: 14px !important;
+        box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04) !important;
     }
     [data-testid="stMetricLabel"] > div, [data-testid="stMetricLabel"] p {
         color: #475569 !important;
         font-weight: 700 !important;
-        font-size: 0.9rem !important;
+        font-size: 0.88rem !important;
     }
     [data-testid="stMetricValue"] > div {
-        color: #0f172a !important;
+        color: #0b172a !important;
         font-weight: 800 !important;
     }
 
-    /* Form Controls & Inputs */
+    /* Form Controls */
     .stTextInput input, .stTextArea textarea, [data-baseweb="select"] > div {
         background-color: #ffffff !important;
-        color: #0f172a !important;
-        border-radius: 8px !important;
-        border: 1px solid #94a3b8 !important;
+        color: #0b172a !important;
+        border-radius: 9px !important;
+        border: 1px solid #cbd5e1 !important;
         font-weight: 500 !important;
     }
-    .stTextInput input::placeholder, .stTextArea textarea::placeholder {
-        color: #64748b !important;
+    .stTextInput input:focus, .stTextArea textarea:focus {
+        border-color: #1d4ed8 !important;
+        box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.14) !important;
     }
 
-    /* Buttons */
+    /* Trust-First Buttons */
     .stButton > button, .stFormSubmitButton > button {
-        background-color: #059669 !important;
+        background-color: #1d4ed8 !important;
         color: #ffffff !important;
-        border: none !important;
-        border-radius: 8px !important;
+        border: 1px solid #1d4ed8 !important;
+        border-radius: 9px !important;
         font-weight: 700 !important;
         transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(29, 78, 216, 0.16) !important;
     }
     .stButton > button:hover, .stFormSubmitButton > button:hover {
-        background-color: #047857 !important;
+        background-color: #1e40af !important;
+        border-color: #1e40af !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3) !important;
+        box-shadow: 0 6px 16px rgba(29, 78, 216, 0.24) !important;
     }
     .stButton > button p, .stFormSubmitButton > button p {
         color: #ffffff !important;
     }
 
     .stDownloadButton > button {
-        background-color: #0f172a !important;
+        background-color: #0b172a !important;
         color: #ffffff !important;
-        border-radius: 8px !important;
+        border-radius: 9px !important;
         font-weight: 700 !important;
     }
     .stDownloadButton > button:hover {
-        background-color: #1e293b !important;
+        background-color: #16243d !important;
     }
     .stDownloadButton > button p {
         color: #ffffff !important;
@@ -156,37 +165,83 @@ st.markdown(
 
     /* Code & Alerts */
     [data-testid="stCode"] pre, [data-testid="stCode"] code {
-        background-color: #0f172a !important;
+        background-color: #0b172a !important;
         color: #f8fafc !important;
         border-radius: 10px !important;
     }
     [data-testid="stAlert"] {
-        border-radius: 10px !important;
-        border: 1px solid #cbd5e1 !important;
+        border-radius: 12px !important;
+        border: 1px solid #bfdbfe !important;
     }
     [data-testid="stAlert"] p {
-        color: #0f172a !important;
+        color: #0b172a !important;
         font-weight: 600 !important;
     }
 
-    /* Plan badge pill */
+    /* Institutional Header & Status Pills */
     .scudo-header-card {
         background: #ffffff;
-        border: 1px solid #cbd5e1;
-        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
         padding: 18px 22px;
         margin-bottom: 16px;
-        box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
+    }
+    .brand-shield-dash {
+        width: 42px;
+        height: 42px;
+        border-radius: 11px;
+        background: linear-gradient(135deg, #1d4ed8 0%, #059669 100%);
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        box-shadow: 0 4px 12px rgba(29, 78, 216, 0.22);
+        flex-shrink: 0;
+    }
+    .status-pill-dash {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        background: #ecfdf5;
+        color: #065f46 !important;
+        border: 1px solid #a7f3d0;
+    }
+    .status-dot-pulse-dash {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #059669;
+        box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.55);
+        animation: pulse-green-dash 2.2s infinite;
+        display: inline-block;
+    }
+    @keyframes pulse-green-dash {
+        0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.55); }
+        70% { box-shadow: 0 0 0 7px rgba(5, 150, 105, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
     }
     .scudo-badge {
         display: inline-block;
-        padding: 4px 12px;
+        padding: 5px 13px;
         border-radius: 999px;
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 700;
-        background: #d1fae5;
-        color: #065f46 !important;
-        border: 1px solid #6ee7b7;
+        background: #eff6ff;
+        color: #1d4ed8 !important;
+        border: 1px solid #bfdbfe;
+    }
+    .portal-box {
+        background: linear-gradient(90deg, #eff6ff 0%, #ecfdf5 100%);
+        border: 1px solid #bfdbfe;
+        border-radius: 14px;
+        padding: 18px 20px;
+        margin-top: 12px;
     }
 </style>
 """,
@@ -200,6 +255,8 @@ st.markdown(
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").strip()
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "").strip()
 SCUDO_API_URL = os.environ.get("SCUDO_API_URL", "").strip().rstrip("/")
+LANDING_URL = os.environ.get("LANDING_URL", "http://localhost:8080").strip().rstrip("/")
+STRIPE_CUSTOMER_PORTAL_URL = os.environ.get("STRIPE_CUSTOMER_PORTAL_URL", "").strip()
 
 PLAN_QUOTA_DEFAULTS: dict[str, int] = {
     "free": 10_000,
@@ -376,6 +433,29 @@ def _build_session_engine(rules: dict[str, Any]) -> ScudoEngine:
     )
 
 
+def _resolve_stripe_portal_url(email: str) -> tuple[bool, str]:
+    """Resolve direct Stripe Customer Portal URL via Landing API or configured direct link."""
+    clean_email = (email or "").strip().lower()
+    if STRIPE_CUSTOMER_PORTAL_URL:
+        sep = "&" if "?" in STRIPE_CUSTOMER_PORTAL_URL else "?"
+        suffix = f"{sep}prefilled_email={clean_email}" if clean_email else ""
+        return True, f"{STRIPE_CUSTOMER_PORTAL_URL}{suffix}"
+    if clean_email and LANDING_URL:
+        try:
+            resp = httpx.post(
+                f"{LANDING_URL}/api/v1/stripe/portal",
+                json={"email": clean_email},
+                timeout=5.0,
+            )
+            data = resp.json()
+            if data.get("status") == "ready" and data.get("portal_url"):
+                return True, str(data["portal_url"])
+            return False, str(data.get("message", "Portale Clienti Stripe non ancora configurato."))
+        except Exception as exc:
+            return False, f"Servizio Portale non raggiungibile ({exc})."
+    return False, "Inserisci la tua email aziendale per aprire il Portale Clienti Stripe."
+
+
 def _run_redteam_wave(engine: ScudoEngine, *, push_to_cp: bool, api_key: str) -> pd.DataFrame:
     """Execute 12 real attack + hard-negative probes against ScudoEngine."""
     rows: list[dict[str, Any]] = []
@@ -386,13 +466,13 @@ def _run_redteam_wave(engine: ScudoEngine, *, push_to_cp: bool, api_key: str) ->
         res = engine.inspect(payload)
         red = redact_sensitive_data(payload, redact_pii=True, redact_secrets=True)
         if res.blocked:
-            outcome = "🚨 BLOCKED (403)"
+            outcome = "🛡️ PROTETTO (403)"
         elif res.is_malicious:
-            outcome = "👁️ MONITORED"
+            outcome = "👁️ MONITORATO"
         elif kind == "pii" and (red.contains_pii or red.contains_secrets):
-            outcome = "🔒 PII/SECRET REDACTED"
+            outcome = "🔒 PII/SECRET OSCURATO"
         else:
-            outcome = "✅ ALLOWED (200)"
+            outcome = "✅ AUTORIZZATO (200)"
 
         rows.append(
             {
@@ -432,15 +512,22 @@ def check_authentication() -> bool:
     if st.session_state.get("autenticato", False):
         return True
 
-    st.write("<br><br>", unsafe_allow_html=True)
-    _, col2, _ = st.columns([1, 1.7, 1])
+    st.write("<br>", unsafe_allow_html=True)
+    _, col2, _ = st.columns([1, 1.8, 1])
     with col2:
         st.markdown(
             """
             <div class="scudo-header-card" style="text-align:center;">
-                <h1 style="margin-bottom:6px;">🛡️ Scudo WAF v1.0</h1>
-                <p style="color:#475569; font-weight:600; margin-bottom:0;">
-                    Self-Service Security Operations, PII Guard &amp; Policy Console
+                <div style="display:flex; justify-content:center; margin-bottom:12px;">
+                    <div class="brand-shield-dash">🛡️</div>
+                </div>
+                <span class="status-pill-dash" style="margin-bottom:10px;">
+                    <span class="status-dot-pulse-dash"></span>
+                    Fail-Open Certified · In-Memory v1.0.0
+                </span>
+                <h1 style="margin:6px 0 6px; font-size:1.85rem;">Scudo WAF · Security Console</h1>
+                <p style="color:#475569; font-weight:500; margin-bottom:0; font-size:0.95rem;">
+                    Console di Monitoraggio, Policy Dinamiche &amp; GDPR PII Guard
                 </p>
             </div>
             """,
@@ -564,17 +651,31 @@ badge_text = "AGENCY / TEAM" if plan_badge == "AGENCY" else plan_badge
 
 col_titolo, col_azioni = st.columns([7, 4])
 with col_titolo:
+    conn_status = (
+        "Modalità Sandbox Interattiva (Demo)"
+        if is_demo
+        else f"Connesso al Backend ({backend_type.replace('_', ' ').title()})"
+    )
     st.markdown(
         f"""
         <div class="scudo-header-card">
-            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-                <div>
-                    <h1 style="margin:0; font-size:1.9rem;">🛡️ Scudo WAF — Security Console v1.0</h1>
-                    <p style="margin:4px 0 0; color:#475569; font-weight:600; font-size:0.95rem;">
-                        {"🧪 Demo Mode (Console Interattiva & Simulazione Red-Team)" if is_demo else f"🟢 Connected ({backend_type.replace('_', ' ').title()})"}
-                    </p>
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; align-items:center; gap:14px;">
+                    <div class="brand-shield-dash">🛡️</div>
+                    <div>
+                        <h1 style="margin:0; font-size:1.65rem;">Scudo WAF — Security Console</h1>
+                        <p style="margin:3px 0 0; color:#475569; font-weight:600; font-size:0.9rem;">
+                            {conn_status}
+                        </p>
+                    </div>
                 </div>
-                <span class="scudo-badge">Piano {badge_text}</span>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                    <span class="status-pill-dash">
+                        <span class="status-dot-pulse-dash"></span>
+                        Fail-Open Certified · v1.0.0
+                    </span>
+                    <span class="scudo-badge">Piano {badge_text}</span>
+                </div>
             </div>
         </div>
         """,
@@ -604,8 +705,8 @@ tab_telemetry, tab_rules, tab_keys, tab_playground = st.tabs(
     [
         "📊 Telemetry & Quota",
         "⚙️ Policy & Rules Builder",
-        "🔑 API Keys & Integration",
-        "🧪 Live WAF & Red-Team Simulator",
+        "🔑 API Keys & Abbonamento",
+        "🧪 Suite Diagnostica & Sandbox",
     ]
 )
 
@@ -725,11 +826,11 @@ with tab_telemetry:
         probe = session_engine.inspect("health check probe")
         latency_display = f"{probe.latency_ms:.2f} ms"
 
-    st.subheader("Riepilogo Sicurezza")
+    st.subheader("Riepilogo Sicurezza e Continuità")
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-    kpi1.metric(label="🛡️ Minacce Bloccate", value=totale_attacchi)
-    kpi2.metric(label="🎯 Categorie Rilevate", value=unique_categories)
-    kpi3.metric(label="🔥 Minaccia Principale", value=top_threat.split(" ")[0])
+    kpi1.metric(label="🛡️ Richieste Protette", value=totale_attacchi)
+    kpi2.metric(label="🔍 Vettori Rilevati", value=unique_categories)
+    kpi3.metric(label="🛡️ Vettore Principale", value=top_threat.split(" ")[0])
     kpi4.metric(label="⚡ Latenza Media Engine", value=latency_display)
 
     st.divider()
@@ -737,7 +838,7 @@ with tab_telemetry:
     if totale_attacchi > 0:
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            st.markdown("<h4 style='font-size: 1.15rem;'>Andamento Attacchi Giornaliero</h4>", unsafe_allow_html=True)
+            st.markdown("<h4 style='font-size: 1.15rem;'>Andamento Eventi Protetti</h4>", unsafe_allow_html=True)
             attacchi_giorno = df.groupby(df["created_at"].dt.date).size().reset_index(name="conteggio")
             fig_linea = px.line(attacchi_giorno, x="created_at", y="conteggio", markers=True)
             fig_linea.update_layout(
@@ -745,20 +846,20 @@ with tab_telemetry:
                 yaxis_title="",
                 plot_bgcolor="#ffffff",
                 paper_bgcolor="#ffffff",
-                font=dict(color="#0f172a", size=13),
+                font=dict(color="#0b172a", size=13),
                 hovermode="x unified",
                 margin=dict(l=20, r=20, t=20, b=20),
             )
-            fig_linea.update_traces(line_color="#e11d48", line_width=3, marker=dict(size=8, color="#0f172a"))
-            fig_linea.update_xaxes(showgrid=False, tickfont=dict(color="#0f172a"))
-            fig_linea.update_yaxes(gridcolor="#e2e8f0", tickfont=dict(color="#0f172a"))
+            fig_linea.update_traces(line_color="#1d4ed8", line_width=3, marker=dict(size=8, color="#059669"))
+            fig_linea.update_xaxes(showgrid=False, tickfont=dict(color="#0b172a"))
+            fig_linea.update_yaxes(gridcolor="#e2e8f0", tickfont=dict(color="#0b172a"))
             st.plotly_chart(fig_linea, use_container_width=True)
 
         with col_g2:
-            st.markdown("<h4 style='font-size: 1.15rem;'>Distribuzione per Categoria</h4>", unsafe_allow_html=True)
+            st.markdown("<h4 style='font-size: 1.15rem;'>Distribuzione per Vettore</h4>", unsafe_allow_html=True)
             attacchi_tipo = df["tipo_attacco"].value_counts().reset_index()
             attacchi_tipo.columns = ["tipo", "conteggio"]
-            palette = ["#0f172a", "#e11d48", "#059669", "#2563eb", "#d97706", "#475569"]
+            palette = ["#1d4ed8", "#059669", "#0b172a", "#0284c7", "#64748b", "#0d9488"]
             fig_torta = px.pie(
                 attacchi_tipo,
                 values="conteggio",
@@ -946,6 +1047,34 @@ with tab_keys:
                 st.rerun()
 
     st.divider()
+    st.markdown("#### 💳 Abbonamento, Fatture & Disdetta (Stripe Customer Portal)")
+    st.markdown(
+        """
+        <div class="portal-box">
+            <div style="font-weight:700; color:#0b172a; margin-bottom:4px;">Portale Clienti Self-Service Stripe</div>
+            <div style="font-size:0.88rem; color:#334155;">Scarica le tue fatture PDF, aggiorna la carta di credito o modifica/annulla il piano in 1 clic senza vincoli.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    p_col1, p_col2 = st.columns([3, 1.4])
+    with p_col1:
+        portal_email = st.text_input(
+            "Email associata all'abbonamento Stripe",
+            value=str(account_info.get("email") or ""),
+            key="dash_portal_email",
+        )
+    with p_col2:
+        st.write("")
+        st.write("")
+        if st.button("🔗 Genera Link Portale Stripe", use_container_width=True):
+            ok_portal, portal_res = _resolve_stripe_portal_url(portal_email)
+            if ok_portal:
+                st.link_button("Apri Portale Clienti Stripe ↗", portal_res, use_container_width=True)
+            else:
+                st.info(portal_res)
+
+    st.divider()
     st.markdown("#### Snippet pronti all'uso per il tuo stack")
     s_tab1, s_tab2, s_tab3, s_tab4 = st.tabs(["FastAPI", "LLM PromptGuard + PII", "Flask / Django", "Docker Reverse-Proxy Sidecar"])
 
@@ -1006,18 +1135,18 @@ scudo-waf proxy --upstream http://127.0.0.1:3000 --port 8081 --mode {active_rule
 
 
 # ==========================================
-# Tab 4: Live Interactive WAF & Red-Team Simulator
+# Tab 4: Suite Diagnostica & Sandbox
 # ==========================================
 with tab_playground:
-    st.subheader("Testa Motore 3-Livelli + Simulatore di Attacco Reale")
+    st.subheader("Verifica Motore Ibrido 3-Livelli & Suite Diagnostica")
     st.caption(
         f"Policy attiva: mode=`{session_engine.config.mode.value}` · threshold=`{session_engine.ml_threshold}` · ML loaded=`{session_engine.ml_loaded}`"
     )
 
     with st.container():
-        st.markdown("#### 🔥 Simulatore Ondata Red-Team (Test Automatico 12 Vettori)")
-        st.write("Lancia una sequenza realistica di SQLi offuscate, XSS, SSRF AWS, Command Injection, Prompt Injection e leak PII verso il motore e registra gli attacchi bloccati nei log.")
-        if st.button("🚀 Simula Ondata di Attacco Reale (Red-Team 12 Vettori)", use_container_width=True):
+        st.markdown("#### 🛡️ Suite Diagnostica Multi-Vettore (12 Test Reali)")
+        st.write("Esegui un audit completo di SQLi offuscate, XSS, SSRF AWS, Command Injection, Prompt Injection e leak PII verso il motore e registra gli eventi protetti nella telemetria.")
+        if st.button("🛡️ Esegui Diagnostica Completa (12 Vettori)", use_container_width=True):
             wave_df = _run_redteam_wave(
                 session_engine,
                 push_to_cp=(backend_type == "control_plane" and not is_demo),
@@ -1027,9 +1156,9 @@ with tab_playground:
 
     if "last_redteam_results" in st.session_state:
         res_df = st.session_state["last_redteam_results"]
-        blocked_n = int(res_df["Esito"].str.contains("BLOCKED|MONITORED").sum())
+        blocked_n = int(res_df["Esito"].str.contains("PROTETTO|MONITORATO").sum())
         st.success(
-            f"✅ Simulazione completata: {blocked_n} attacchi intercettati, leak PII/Secret mascherati e 0 falsi positivi! Controlla ora il tab 📊 Telemetry & Quota."
+            f"✅ Audit completato: {blocked_n} vettori di attacco neutralizzati, dati PII/segreti oscurati e 0 falsi positivi! Controlla il tab 📊 Telemetry & Quota."
         )
         st.dataframe(res_df, use_container_width=True, hide_index=True)
 
@@ -1065,9 +1194,9 @@ with tab_playground:
 
             m1, m2, m3, m4 = st.columns(4)
             verdict_label = (
-                "🚨 BLOCKED"
+                "🛡️ PROTETTO (403)"
                 if res.blocked
-                else ("👁️ MONITORED" if res.is_malicious else "✅ ALLOWED")
+                else ("👁️ MONITORATO" if res.is_malicious else "✅ AUTORIZZATO (200)")
             )
             m1.metric("Verdetto WAF", verdict_label)
             m2.metric("Categoria", res.category.value)

@@ -68,7 +68,7 @@ class ScudoStorage:
         self.supabase = supabase_client
         self._lock = threading.RLock()
 
-        if mode == "sqlite" and sqlite_path is not None:
+        if mode != "memory" and sqlite_path is not None:
             path_obj = Path(sqlite_path)
             path_obj.parent.mkdir(parents=True, exist_ok=True)
             db_target = str(path_obj)
@@ -284,7 +284,15 @@ class ScudoStorage:
                     (row["key_hash"],),
                 ).fetchone()
                 assert updated is not None
-                return self._row_to_tenant(updated)
+                out = self._row_to_tenant(updated)
+                if self.supabase is not None:
+                    try:
+                        self.supabase.table("api_keys").update(
+                            {"plan": clean_plan, "is_active": True}
+                        ).eq("key_hash", row["key_hash"]).execute()
+                    except Exception as exc:
+                        logger.warning("Supabase subscription upgrade mirror failed: %s", exc)
+                return out
 
         return self.create_api_key(
             clean_email,
@@ -318,7 +326,13 @@ class ScudoStorage:
             return 0
 
         where_sql = " OR ".join(clauses)
+        affected_hashes: list[str] = []
         with self._lock:
+            rows = self._conn.execute(
+                f"SELECT key_hash FROM api_keys WHERE ({where_sql})",
+                params,
+            ).fetchall()
+            affected_hashes = [str(r["key_hash"]) for r in rows]
             if downgrade_to_free:
                 cur = self._conn.execute(
                     f"""
@@ -338,7 +352,16 @@ class ScudoStorage:
                     [now, *params],
                 )
             self._conn.commit()
-            return int(cur.rowcount)
+            count = int(cur.rowcount)
+
+        if self.supabase is not None and affected_hashes:
+            patch = {"plan": "free"} if downgrade_to_free else {"is_active": False}
+            for kh in affected_hashes:
+                try:
+                    self.supabase.table("api_keys").update(patch).eq("key_hash", kh).execute()
+                except Exception as exc:
+                    logger.warning("Supabase subscription deactivate mirror failed: %s", exc)
+        return count
 
     def rotate_api_key(self, current_api_key: str) -> dict[str, Any] | None:
         """Issue a replacement API key for the same tenant and revoke the previous one."""
@@ -679,3 +702,11 @@ class ScudoStorage:
                 (clean_email, clean_plan, now),
             )
             self._conn.commit()
+
+        if self.supabase is not None:
+            try:
+                self.supabase.table("waitlist").insert(
+                    {"cliente_email": clean_email, "piano_scelto": clean_plan}
+                ).execute()
+            except Exception as exc:
+                logger.warning("Supabase record_waitlist mirror failed: %s", exc)
