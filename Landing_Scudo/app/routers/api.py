@@ -393,32 +393,72 @@ async def gestisci_iscrizione(
             safe_checkout = html.escape(str(checkout_url))
             stripe_cta_html = (
                 f"<a href='{safe_checkout}' target='_blank' "
-                "style='background:#635bff; color:white; padding:12px 24px; text-decoration:none; "
-                "border-radius:8px; font-weight:700;'>💳 Completa Attivazione Abbonamento su Stripe</a>"
+                "style='background:#1d4ed8; color:white; padding:12px 22px; text-decoration:none; "
+                "border-radius:9px; font-weight:700; display:inline-block;'>Completa Attivazione Stripe</a>"
             )
 
     return HTMLResponse(
         f"""
-        <html><body style='background:#f8fafc; color:#0f172a; text-align:center; padding:60px 20px; font-family:Inter,system-ui,sans-serif;'>
-            <div style='max-width:640px; margin:0 auto; background:white; padding:40px; border-radius:16px; border:1px solid #e2e8f0; box-shadow:0 20px 40px -15px rgba(0,0,0,0.06); text-align:left;'>
-                <div style='text-align:center;'>
-                    <h2 style='color:#10b981; font-weight:800; margin-bottom:8px;'>🎉 API Key Scudo WAF Attivata!</h2>
-                    <p style='color:#64748b;'>Account: <strong>{safe_email}</strong> · Piano <strong>{safe_plan}</strong> ({quota_fmt} req/mese)</p>
+        <!DOCTYPE html>
+        <html lang='it'>
+        <head>
+            <meta charset='UTF-8'>
+            <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+            <title>Certificato API Key Attivata — Scudo WAF</title>
+        </head>
+        <body style='background:linear-gradient(180deg,#eff6ff 0%,#f8fafc 100%); color:#0f172a; margin:0; padding:48px 20px; font-family:"Plus Jakarta Sans",Inter,system-ui,sans-serif;'>
+            <div style='max-width:680px; margin:0 auto; background:#ffffff; padding:38px; border-radius:18px; border:1px solid #cbd5e1; box-shadow:0 24px 48px -16px rgba(11,23,42,0.10); text-align:left;'>
+                <div style='display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; border-bottom:1px solid #e2e8f0; padding-bottom:20px; margin-bottom:24px;'>
+                    <div>
+                        <div style='display:inline-block; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; padding:4px 12px; border-radius:999px; font-size:12px; font-weight:700; margin-bottom:8px;'>CERTIFICATO DI ATTIVAZIONE LICENZA</div>
+                        <h2 style='color:#0b172a; font-weight:800; margin:0; font-size:24px;'>API Key Scudo WAF Pronta all'Uso</h2>
+                    </div>
+                    <div style='width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,#1d4ed8 0%,#059669 100%); color:#ffffff; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:800;'>&#10003;</div>
                 </div>
-                <div style='background:#0f172a; color:#f8fafc; padding:16px 20px; border-radius:10px; margin:20px 0; font-family:monospace; font-size:0.95rem; word-break:break-all;'>
-                    <div style='color:#94a3b8; font-size:0.75rem; margin-bottom:6px;'>LA TUA API KEY PERSONALE (salvala subito):</div>
-                    <strong style='color:#10b981;'>{safe_key}</strong>
+
+                <div style='display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:22px; background:#f8fafc; padding:14px 18px; border-radius:12px; border:1px solid #e2e8f0; font-size:14px;'>
+                    <div><div style='color:#64748b; font-size:12px; font-weight:600;'>INTESTATARIO</div><strong style='color:#0f172a;'>{safe_email}</strong></div>
+                    <div><div style='color:#64748b; font-size:12px; font-weight:600;'>PIANO ATTIVO</div><strong style='color:#1d4ed8;'>{safe_plan}</strong></div>
+                    <div><div style='color:#64748b; font-size:12px; font-weight:600;'>QUOTA CLOUD MENSILE</div><strong style='color:#059669;'>{quota_fmt} req/mese</strong></div>
                 </div>
-                <div style='background:#f1f5f9; padding:14px 16px; border-radius:10px; font-family:monospace; font-size:0.82rem; color:#0f172a; margin-bottom:24px;'>
+
+                <div style='background:#0b172a; color:#f8fafc; padding:18px 20px; border-radius:12px; margin-bottom:20px; border:1px solid #1e293b;'>
+                    <div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:10px; flex-wrap:wrap;'>
+                        <span style='color:#94a3b8; font-size:11px; font-weight:700; letter-spacing:0.6px;'>LA TUA API KEY PERSONALE (CIFRATA SHA-256 SUL SERVER)</span>
+                        <button type='button' id='copy-key-btn' onclick='copyApiKey()' style='background:#1e293b; color:#e2e8f0; border:1px solid #334155; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;'>Copia Chiave</button>
+                    </div>
+                    <code id='api-key-val' style='color:#34d399; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:15px; font-weight:700; word-break:break-all;'>{safe_key}</code>
+                </div>
+
+                <div style='background:#f1f5f9; padding:16px 18px; border-radius:12px; border:1px solid #e2e8f0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; color:#0f172a; margin-bottom:22px; line-height:1.65;'>
+                    <div style='color:#475569; font-family:Inter,system-ui,sans-serif; font-size:12px; font-weight:700; margin-bottom:6px;'>GUIDA RAPIDA IN 3 RIGHE (MODO FAIL-OPEN GARANTITO):</div>
                     pip install scudo-waf<br>
-                    app.add_middleware(WafMiddleware, api_key="{safe_key}")
+                    app.add_middleware(WafMiddleware, mode="block", api_key="{safe_key}")
                 </div>
-                <div style='text-align:center; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;'>
+
+                <div style='background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:12px 16px; color:#065f46; font-size:13px; margin-bottom:24px;'>
+                    <strong>Garanzia di Continuità Operativa:</strong> Anche se superi la quota di telemetria mensile o il Control Plane fosse irraggiungibile, l'ispezione locale nella RAM della tua app continua a funzionare senza interruzioni.
+                </div>
+
+                <div style='display:flex; gap:12px; justify-content:center; flex-wrap:wrap;'>
                     {stripe_cta_html}
-                    <a href='{dashboard_url}' target='_blank' style='background:#0f172a; color:white; padding:12px 24px; text-decoration:none; border-radius:8px; font-weight:700;'>Apri Console Analytics</a>
-                    <a href='/' style='background:#10b981; color:white; padding:12px 24px; text-decoration:none; border-radius:8px; font-weight:700;'>Torna alla Home</a>
+                    <a href='{dashboard_url}' target='_blank' style='background:#0b172a; color:white; padding:12px 22px; text-decoration:none; border-radius:9px; font-weight:700; display:inline-block;'>Apri Console Analytics</a>
+                    <a href='/' style='background:#059669; color:white; padding:12px 22px; text-decoration:none; border-radius:9px; font-weight:700; display:inline-block;'>Torna alla Home</a>
                 </div>
             </div>
-        </body></html>
+            <script>
+                function copyApiKey() {{
+                    var val = document.getElementById('api-key-val').textContent;
+                    var btn = document.getElementById('copy-key-btn');
+                    if (navigator.clipboard) {{
+                        navigator.clipboard.writeText(val).then(function() {{
+                            btn.textContent = 'Copiata!';
+                            setTimeout(function() {{ btn.textContent = 'Copia Chiave'; }}, 1800);
+                        }});
+                    }}
+                }}
+            </script>
+        </body>
+        </html>
         """
     )
