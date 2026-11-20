@@ -17,6 +17,7 @@ logger = logging.getLogger("scudo_waf.storage")
 PLAN_QUOTAS: dict[str, int] = {
     "free": 10_000,
     "pro": 500_000,
+    "agency": 2_500_000,
     "enterprise": 10_000_000,
 }
 
@@ -49,7 +50,7 @@ def mask_api_key(api_key: str) -> str:
 
 def generate_api_key(plan: str = "free") -> str:
     """Generate a prefixed tenant API key."""
-    prefix = "sk_live_" if plan in {"pro", "enterprise"} else "sk_free_"
+    prefix = "sk_live_" if plan in {"pro", "agency", "enterprise"} else "sk_free_"
     return f"{prefix}{secrets.token_hex(12)}"
 
 
@@ -641,6 +642,31 @@ class ScudoStorage:
         with self._lock:
             row = self._conn.execute("SELECT COUNT(*) AS cnt FROM log_attacchi").fetchone()
             return int(row["cnt"]) if row else 0
+
+    def clear_attack_logs(self, api_key: str | None = None) -> int:
+        """Delete recorded security logs for ``api_key`` (or all tenants if ``None``)."""
+        with self._lock:
+            if api_key:
+                key_hash = hash_api_key(api_key)
+                cur = self._conn.execute(
+                    "DELETE FROM log_attacchi WHERE key_hash = ?",
+                    (key_hash,),
+                )
+            else:
+                cur = self._conn.execute("DELETE FROM log_attacchi")
+            self._conn.commit()
+            deleted = int(cur.rowcount) if cur.rowcount is not None and cur.rowcount >= 0 else 0
+
+        if self.supabase is not None:
+            try:
+                if api_key:
+                    self.supabase.table("log_attacchi").delete().eq("api_key_usata", api_key).execute()
+                else:
+                    self.supabase.table("log_attacchi").delete().neq("id", 0).execute()
+            except Exception as exc:
+                logger.warning("Supabase clear_attack_logs warning: %s", exc)
+
+        return deleted
 
     def record_waitlist(self, email: str, piano: str) -> None:
         """Persist a waitlist signup in SQLite (and optionally Supabase)."""

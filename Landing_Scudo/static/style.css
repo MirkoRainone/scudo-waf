@@ -66,7 +66,9 @@ body {
 .pricing-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 2.5rem; height: 100%; transition: all 0.3s; position: relative; }
 .pricing-card:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -15px rgba(0,0,0,0.08); }
 .pricing-card.pro { border: 2px solid var(--tech-emerald); box-shadow: 0 20px 40px -15px rgba(16, 185, 129, 0.15); }
+.pricing-card.agency { border: 2px solid #0f172a; box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.14); }
 .badge-pro { background-color: rgba(16, 185, 129, 0.1); color: var(--tech-emerald); font-weight: 700; font-size: 0.75rem; padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3); text-transform: uppercase; letter-spacing: 0.5px; }
+.badge-agency { background-color: #0f172a; color: #f8fafc; font-weight: 700; font-size: 0.75rem; padding: 6px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
 .price-tag { font-size: 2.5rem; font-weight: 800; color: var(--trust-blue); }
 .feature-list { list-style: none; padding: 0; margin: 2rem 0; text-align: left; }
 .feature-list li { margin-bottom: 0.85rem; color: var(--text-muted); font-size: 0.95rem; display: flex; align-items: center; gap: 10px; }
@@ -92,6 +94,9 @@ body {
 .radio-card-label:hover { border-color: #cbd5e1; }
 .radio-card-input:checked + .radio-card-label.free-label { border-color: var(--trust-blue); background: rgba(15, 23, 42, 0.05); color: var(--trust-blue); }
 .radio-card-input:checked + .radio-card-label.pro-label { border-color: var(--tech-emerald); background: rgba(16, 185, 129, 0.05); color: #065f46; }
+.radio-card-input:checked + .radio-card-label.agency-label { border-color: #635bff; background: rgba(99, 91, 255, 0.08); color: #312e81; }
+.btn-stripe-dark { background-color: #0f172a; border: none; padding: 0.75rem 1.5rem; border-radius: 8px; font-weight: 600; transition: all 0.2s; color: white; }
+.btn-stripe-dark:hover { background-color: #1e293b; color: white; transform: translateY(-1px); }
 
 /* FAQ & Trust Banner */
 .trust-banner { background-color: var(--surface-color); border-top: 1px solid #e2e8f0; padding: 80px 0; text-align: center; }

@@ -195,6 +195,22 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(r_logs.status_code, 200)
                 self.assertGreaterEqual(len(r_logs.json()["logs"]), 1)
 
+                # Clear logs endpoint (DELETE /v1/logs)
+                r_clr = await client.delete("/v1/logs", headers=tenant_hdr)
+                self.assertEqual(r_clr.status_code, 200)
+                self.assertGreaterEqual(r_clr.json()["deleted_logs"], 1)
+                r_logs_after = await client.get("/v1/logs", headers=tenant_hdr)
+                self.assertEqual(len(r_logs_after.json()["logs"]), 0)
+
+                # Agency / Team provisioning check
+                r_agency = await client.post(
+                    "/v1/keys/provision",
+                    json={"email": "team@agency.dev", "plan": "agency"},
+                )
+                self.assertEqual(r_agency.status_code, 200)
+                self.assertTrue(r_agency.json()["api_key"].startswith("sk_live_"))
+                self.assertEqual(r_agency.json()["monthly_quota"], 2_500_000)
+
                 # 9. API Key Rotation invalidates old key and keeps tenant active on new key
                 r_rot = await client.post("/v1/keys/rotate", headers=tenant_hdr)
                 self.assertEqual(r_rot.status_code, 200)
@@ -256,6 +272,10 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(r_priv.status_code, 200)
                 self.assertIn("GDPR", r_priv.text)
 
+                r_vid = await client.get("/video")
+                self.assertEqual(r_vid.status_code, 200)
+                self.assertIn("SCUDO WAF PLATFORM", r_vid.text)
+
                 # 3. Health endpoint
                 r_health = await client.get("/health")
                 self.assertEqual(r_health.status_code, 200)
@@ -291,6 +311,31 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                 )
                 self.assertEqual(r_signup.status_code, 200)
                 self.assertTrue(r_signup.json()["api_key"].startswith("sk_free_"))
+
+                r_agency_signup = await client.post(
+                    "/api/v1/signup",
+                    json={"email": "cto@agency.io", "piano_scelto": "agency"},
+                )
+                self.assertEqual(r_agency_signup.status_code, 200)
+                self.assertTrue(r_agency_signup.json()["api_key"].startswith("sk_live_"))
+                self.assertEqual(r_agency_signup.json()["monthly_quota"], 2_500_000)
+
+                # Payment Link Checkout resolution
+                prev_pay_link = os.environ.get("STRIPE_AGENCY_PAYMENT_LINK")
+                os.environ["STRIPE_AGENCY_PAYMENT_LINK"] = "https://buy.stripe.com/test_agency_plan"
+                try:
+                    r_chk = await client.post(
+                        "/api/v1/checkout",
+                        json={"email": "cto@agency.io", "plan": "agency"},
+                    )
+                    self.assertEqual(r_chk.status_code, 200)
+                    self.assertEqual(r_chk.json()["status"], "ready")
+                    self.assertIn("prefilled_email=cto%40agency.io", r_chk.json()["checkout_url"])
+                finally:
+                    if prev_pay_link is None:
+                        os.environ.pop("STRIPE_AGENCY_PAYMENT_LINK", None)
+                    else:
+                        os.environ["STRIPE_AGENCY_PAYMENT_LINK"] = prev_pay_link
 
                 r_form = await client.post(
                     "/api/v1/iscriviti",

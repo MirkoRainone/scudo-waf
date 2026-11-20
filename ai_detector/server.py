@@ -117,7 +117,7 @@ class ProvisionKeyRequest(BaseModel):
     """Self-service tenant API key provisioning request."""
 
     email: EmailStr
-    plan: Literal["free", "pro", "enterprise"] = "free"
+    plan: Literal["free", "pro", "agency", "enterprise"] = "free"
 
 
 class SubscriptionSyncRequest(BaseModel):
@@ -125,7 +125,7 @@ class SubscriptionSyncRequest(BaseModel):
 
     action: Literal["activate", "deactivate"]
     email: EmailStr | None = None
-    plan: Literal["free", "pro", "enterprise"] = "pro"
+    plan: Literal["free", "pro", "agency", "enterprise"] = "pro"
     stripe_customer_id: str | None = None
     stripe_subscription_id: str | None = None
 
@@ -446,9 +446,12 @@ async def provision_api_key(
     x_scudo_admin_secret: str | None = Header(None),
 ) -> dict[str, Any]:
     """Provision a new tenant API key and initialize default WAF rules."""
-    if req.plan in {"pro", "enterprise"} and ADMIN_SECRET:
+    if req.plan in {"pro", "agency", "enterprise"} and ADMIN_SECRET:
         if not x_scudo_admin_secret or not hmac.compare_digest(x_scudo_admin_secret, ADMIN_SECRET):
-            raise HTTPException(status_code=403, detail="Admin secret richiesto per provisioning piani Pro/Enterprise")
+            raise HTTPException(
+                status_code=403,
+                detail="Admin secret richiesto per provisioning piani Pro/Agency/Enterprise",
+            )
 
     created = storage.create_api_key(str(req.email), req.plan)
     return {
@@ -560,6 +563,15 @@ async def read_logs(
     _authorize_read_only(api_key)
     safe_limit = max(1, min(limit, 1000))
     return {"logs": storage.get_attack_logs(api_key, limit=safe_limit)}
+
+
+@app.delete("/v1/logs")
+async def clear_logs(authorization: str | None = Header(None)) -> dict[str, Any]:
+    """Delete recorded security logs for the authenticated tenant."""
+    api_key = _extract_bearer(authorization)
+    _authorize_read_only(api_key)
+    deleted = storage.clear_attack_logs(api_key)
+    return {"status": "cleared", "deleted_logs": deleted}
 
 
 @app.get("/v1/metrics")

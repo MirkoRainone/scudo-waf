@@ -27,3 +27,8 @@ async def mostra_terms(request: Request):
 @router.get("/privacy", response_class=HTMLResponse)
 async def mostra_privacy(request: Request):
     return templates.TemplateResponse(request=request, name="privacy.html")
+
+
+@router.get("/video", response_class=HTMLResponse)
+async def mostra_video(request: Request):
+    return templates.TemplateResponse(request=request, name="video.html")

@@ -12,6 +12,7 @@ import secrets
 import threading
 from enum import Enum
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Form, HTTPException, Request
@@ -34,6 +35,7 @@ _TENANT_REGISTRY: dict[str, dict[str, Any]] = {}
 class PianoScelto(str, Enum):
     FREE = "free"
     PRO = "pro"
+    AGENCY = "agency"
 
 
 class IscrizioneForm(BaseModel):
@@ -53,13 +55,15 @@ class CheckoutRequest(BaseModel):
 def _quota_for_plan(plan: str) -> int:
     if plan == "enterprise":
         return 10_000_000
+    if plan == "agency":
+        return 2_500_000
     if plan == "pro":
         return 500_000
     return 10_000
 
 
 def _provision_local_fallback(email: str, plan: str) -> dict[str, Any]:
-    prefix = "sk_live_" if plan == "pro" else "sk_free_"
+    prefix = "sk_live_" if plan in {"pro", "agency", "enterprise"} else "sk_free_"
     api_key = f"{prefix}{secrets.token_hex(12)}"
     record = {
         "email": email.strip().lower(),
@@ -214,45 +218,80 @@ async def demo_analyze(req: DemoAnalyzeRequest) -> dict[str, Any]:
     return out
 
 
-@router.post("/checkout")
-async def create_checkout_session(req: CheckoutRequest) -> dict[str, Any]:
-    """Create a Stripe Checkout session when Stripe credentials are configured."""
+async def _create_stripe_checkout(plan: str, email: str | None = None) -> dict[str, Any]:
+    """Resolve direct Stripe Payment Link or create a Stripe Checkout Session via HTTPS API."""
+    clean_plan = plan if plan in {"pro", "agency"} else "pro"
+    payment_link_var = "STRIPE_AGENCY_PAYMENT_LINK" if clean_plan == "agency" else "STRIPE_PRO_PAYMENT_LINK"
+    payment_link = os.environ.get(payment_link_var, "").strip()
+    if payment_link:
+        url = payment_link
+        if email:
+            sep = "&" if "?" in url else "?"
+            url = f"{url}{sep}prefilled_email={quote(email.strip(), safe='')}"
+        return {"status": "ready", "mode": "payment_link", "plan": clean_plan, "checkout_url": url}
+
     stripe_key = os.environ.get("STRIPE_SECRET_KEY", "").strip()
-    price_id = os.environ.get("STRIPE_PRO_PRICE_ID", "").strip()
+    price_var = "STRIPE_AGENCY_PRICE_ID" if clean_plan == "agency" else "STRIPE_PRO_PRICE_ID"
+    price_id = os.environ.get(price_var, "").strip()
     success_url = os.environ.get("STRIPE_SUCCESS_URL", "http://localhost:8080/?checkout=success")
     cancel_url = os.environ.get("STRIPE_CANCEL_URL", "http://localhost:8080/?checkout=cancelled")
 
     if stripe_key and price_id:
+        form_data: dict[str, str] = {
+            "mode": "subscription",
+            "line_items[0][price]": price_id,
+            "line_items[0][quantity]": "1",
+            "success_url": success_url,
+            "cancel_url": cancel_url,
+            "metadata[plan]": clean_plan,
+        }
+        if email:
+            form_data["customer_email"] = email.strip()
         try:
-            import stripe  # type: ignore
-
-            stripe.api_key = stripe_key
-            session_kwargs: dict[str, Any] = {
-                "mode": "subscription",
-                "line_items": [{"price": price_id, "quantity": 1}],
-                "success_url": success_url,
-                "cancel_url": cancel_url,
-            }
-            if req.email:
-                session_kwargs["customer_email"] = str(req.email)
-            session = stripe.checkout.Session.create(**session_kwargs)
-            return {"status": "ready", "mode": "stripe", "checkout_url": session.url}
-        except ImportError:
-            pass
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                resp = await client.post(
+                    "https://api.stripe.com/v1/checkout/sessions",
+                    data=form_data,
+                    headers={"Authorization": f"Bearer {stripe_key}"},
+                )
+            payload = resp.json()
+            if resp.status_code < 400 and payload.get("url"):
+                return {
+                    "status": "ready",
+                    "mode": "stripe",
+                    "plan": clean_plan,
+                    "checkout_url": payload["url"],
+                }
+            msg = payload.get("error", {}).get("message", f"HTTP {resp.status_code}")
+            return {"status": "error", "message": f"Stripe checkout error: {msg}"}
         except Exception as exc:
             return {"status": "error", "message": f"Stripe checkout error: {exc}"}
 
     return {
         "status": "waitlist_fallback",
         "mode": "waitlist",
+        "plan": clean_plan,
         "message": "Stripe non configurato in questo ambiente: usa il form di iscrizione per ottenere subito la tua API Key.",
         "redirect": "#form-iscrizione",
     }
 
 
+@router.post("/checkout")
+async def create_checkout_session(req: CheckoutRequest) -> dict[str, Any]:
+    """Create a Stripe Checkout session (or Payment Link) for Pro or Agency tiers."""
+    if req.plan == PianoScelto.FREE:
+        return {
+            "status": "free_tier",
+            "mode": "free",
+            "message": "Il piano Free non richiede Stripe Checkout: usa #form-iscrizione per generare subito la tua chiave.",
+            "redirect": "#form-iscrizione",
+        }
+    return await _create_stripe_checkout(req.plan.value, str(req.email) if req.email else None)
+
+
 @router.post("/stripe/webhook")
 async def stripe_webhook(request: Request) -> dict[str, Any]:
-    """Signed Stripe webhook handler managing Pro subscription lifecycle."""
+    """Signed Stripe webhook handler managing Pro and Agency subscription lifecycle."""
     webhook_secret = os.environ.get("STRIPE_WEBHOOK_SECRET", "").strip()
     if not webhook_secret:
         raise HTTPException(status_code=400, detail="STRIPE_WEBHOOK_SECRET non configurato")
@@ -272,19 +311,21 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
     customer_email = obj.get("customer_email") or obj.get("customer_details", {}).get("email")
     customer_id = obj.get("customer")
     subscription_id = obj.get("subscription") or (obj.get("id") if "subscription" in event_type else None)
+    raw_meta_plan = str(obj.get("metadata", {}).get("plan", "pro")).lower().strip()
+    target_plan = raw_meta_plan if raw_meta_plan in {"pro", "agency", "enterprise"} else "pro"
 
     if event_type in {"checkout.session.completed", "invoice.paid"}:
         res = await _sync_subscription_change(
             action="activate",
             email=customer_email,
-            plan="pro",
+            plan=target_plan,
             stripe_customer_id=customer_id,
             stripe_subscription_id=subscription_id,
         )
         return {
             "status": "processed",
             "event_type": event_type,
-            "plan": "pro",
+            "plan": target_plan,
             "key_prefix": res.get("key_prefix"),
         }
 
@@ -341,10 +382,25 @@ async def gestisci_iscrizione(
     quota_fmt = f"{int(provisioned['monthly_quota']):,}".replace(",", ".")
     dashboard_url = html.escape(os.environ.get("DASHBOARD_URL", "http://localhost:8501"))
 
+    stripe_cta_html = ""
+    if dati_validati.piano_scelto.value in {"pro", "agency"}:
+        checkout_info = await _create_stripe_checkout(
+            dati_validati.piano_scelto.value,
+            str(dati_validati.email),
+        )
+        checkout_url = checkout_info.get("checkout_url")
+        if checkout_url:
+            safe_checkout = html.escape(str(checkout_url))
+            stripe_cta_html = (
+                f"<a href='{safe_checkout}' target='_blank' "
+                "style='background:#635bff; color:white; padding:12px 24px; text-decoration:none; "
+                "border-radius:8px; font-weight:700;'>💳 Completa Attivazione Abbonamento su Stripe</a>"
+            )
+
     return HTMLResponse(
         f"""
         <html><body style='background:#f8fafc; color:#0f172a; text-align:center; padding:60px 20px; font-family:Inter,system-ui,sans-serif;'>
-            <div style='max-width:600px; margin:0 auto; background:white; padding:40px; border-radius:16px; border:1px solid #e2e8f0; box-shadow:0 20px 40px -15px rgba(0,0,0,0.06); text-align:left;'>
+            <div style='max-width:640px; margin:0 auto; background:white; padding:40px; border-radius:16px; border:1px solid #e2e8f0; box-shadow:0 20px 40px -15px rgba(0,0,0,0.06); text-align:left;'>
                 <div style='text-align:center;'>
                     <h2 style='color:#10b981; font-weight:800; margin-bottom:8px;'>🎉 API Key Scudo WAF Attivata!</h2>
                     <p style='color:#64748b;'>Account: <strong>{safe_email}</strong> · Piano <strong>{safe_plan}</strong> ({quota_fmt} req/mese)</p>
@@ -358,6 +414,7 @@ async def gestisci_iscrizione(
                     app.add_middleware(WafMiddleware, api_key="{safe_key}")
                 </div>
                 <div style='text-align:center; display:flex; gap:12px; justify-content:center; flex-wrap:wrap;'>
+                    {stripe_cta_html}
                     <a href='{dashboard_url}' target='_blank' style='background:#0f172a; color:white; padding:12px 24px; text-decoration:none; border-radius:8px; font-weight:700;'>Apri Console Analytics</a>
                     <a href='/' style='background:#10b981; color:white; padding:12px 24px; text-decoration:none; border-radius:8px; font-weight:700;'>Torna alla Home</a>
                 </div>
