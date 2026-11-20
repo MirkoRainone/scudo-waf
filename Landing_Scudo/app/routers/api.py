@@ -19,7 +19,7 @@ from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, EmailStr, Field
 
 from scudo_waf import ScudoEngine, WafConfig, redact_sensitive_data
@@ -297,6 +297,39 @@ async def _mirror_to_supabase(record: dict[str, Any], *, waitlist_plan: str | No
         logger.warning("Supabase sync skipped/failed (local DB preserved): %s", exc)
 
 
+async def _mirror_waitlist_to_supabase(email: str, waitlist_plan: str) -> None:
+    """Persist only the pre-payment waitlist intent into Supabase without creating an API key."""
+    supabase_url = os.environ.get("SUPABASE_URL", "").strip().rstrip("/")
+    supabase_key = os.environ.get("SUPABASE_KEY", "").strip()
+    if not supabase_url or not supabase_key or "your-project" in supabase_url:
+        return
+
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": "application/json",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{supabase_url}/rest/v1/waitlist",
+                json={"cliente_email": email, "piano_scelto": waitlist_plan},
+                headers=headers,
+            )
+    except Exception as exc:
+        logger.warning("Supabase waitlist sync skipped/failed (local DB preserved): %s", exc)
+
+
+def _resolve_dashboard_url() -> str:
+    """Return a configured Dashboard URL, hiding broken localhost links in cloud/Render."""
+    raw = os.environ.get("DASHBOARD_URL", "").strip()
+    if not raw:
+        return ""
+    if os.environ.get("RENDER") and ("localhost" in raw.lower() or "127.0.0.1" in raw):
+        return ""
+    return raw
+
+
 async def _send_transactional_email(to_email: str, plan: str, api_key: str) -> bool:
     """Send transactional onboarding email with API key via Resend if configured."""
     resend_key = os.environ.get("RESEND_API_KEY", "").strip()
@@ -550,10 +583,10 @@ async def create_checkout_session(req: CheckoutRequest) -> dict[str, Any]:
     """Create a Stripe Checkout session after saving mandatory transactional customer email."""
     clean_email = str(req.email).strip().lower()
     _db_record_waitlist(clean_email, req.plan.value)
-    record = _db_upsert_tenant(clean_email, "free", preserve_existing_higher_plan=True)
-    await _mirror_to_supabase(record, waitlist_plan=req.plan.value)
 
     if req.plan == PianoScelto.FREE:
+        record = _db_upsert_tenant(clean_email, "free", preserve_existing_higher_plan=True)
+        await _mirror_to_supabase(record, waitlist_plan=req.plan.value)
         return {
             "status": "free_tier",
             "mode": "free",
@@ -563,9 +596,10 @@ async def create_checkout_session(req: CheckoutRequest) -> dict[str, Any]:
             "redirect": "#form-iscrizione",
         }
 
+    # Paid plans: never issue an API key before Stripe confirms payment via webhook.
+    await _mirror_waitlist_to_supabase(clean_email, req.plan.value)
     checkout = await _create_stripe_checkout(req.plan.value, clean_email)
     checkout["email"] = clean_email
-    checkout["key_prefix"] = record["key_prefix"]
     return checkout
 
 
@@ -691,8 +725,21 @@ async def stripe_webhook(request: Request) -> dict[str, Any]:
 
 @router.post("/signup")
 async def signup_json(req: IscrizioneForm) -> dict[str, Any]:
-    """Programmatic self-service API Key signup endpoint (returns provisioned key JSON)."""
-    provisioned = await _provision_with_control_plane(str(req.email), req.piano_scelto.value)
+    """Programmatic self-service API Key signup endpoint (Free instant, Paid requires Stripe checkout)."""
+    clean_email = str(req.email).strip().lower()
+    if req.piano_scelto in {PianoScelto.PRO, PianoScelto.AGENCY}:
+        _db_record_waitlist(clean_email, req.piano_scelto.value)
+        await _mirror_waitlist_to_supabase(clean_email, req.piano_scelto.value)
+        checkout = await _create_stripe_checkout(req.piano_scelto.value, clean_email)
+        return {
+            "status": "payment_required",
+            "email": clean_email,
+            "plan": req.piano_scelto.value,
+            "checkout_url": checkout.get("checkout_url"),
+            "message": "Completa il pagamento su Stripe: la tua API Key sarà attivata e inviata via email subito dopo la conferma.",
+        }
+
+    provisioned = await _provision_with_control_plane(clean_email, req.piano_scelto.value)
     await _send_transactional_email(provisioned["email"], provisioned["plan"], provisioned["api_key"])
     return {
         "status": "provisioned",
@@ -716,10 +763,42 @@ async def gestisci_iscrizione(
             status_code=400,
         )
 
-    provisioned = await _provision_with_control_plane(
-        str(dati_validati.email),
-        dati_validati.piano_scelto.value,
-    )
+    clean_email = str(dati_validati.email).strip().lower()
+    selected_plan = dati_validati.piano_scelto.value
+
+    # Paid plans: redirect straight to Stripe Checkout; NEVER issue an API key before payment.
+    if selected_plan in {"pro", "agency"}:
+        _db_record_waitlist(clean_email, selected_plan)
+        await _mirror_waitlist_to_supabase(clean_email, selected_plan)
+        checkout_info = await _create_stripe_checkout(selected_plan, clean_email)
+        checkout_url = checkout_info.get("checkout_url")
+        if checkout_url:
+            return RedirectResponse(url=str(checkout_url), status_code=303)
+
+        safe_plan = html.escape(selected_plan.upper())
+        safe_email = html.escape(clean_email)
+        return HTMLResponse(
+            f"""
+            <!DOCTYPE html>
+            <html lang='it'>
+            <head>
+                <meta charset='UTF-8'>
+                <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+                <title>Pagamento Richiesto — Scudo WAF</title>
+            </head>
+            <body style='background:linear-gradient(180deg,#eff6ff 0%,#f8fafc 100%); color:#0f172a; margin:0; padding:48px 20px; font-family:"Plus Jakarta Sans",Inter,system-ui,sans-serif;'>
+                <div style='max-width:600px; margin:0 auto; background:#ffffff; padding:36px; border-radius:18px; border:1px solid #cbd5e1; text-align:left;'>
+                    <h2 style='color:#0b172a; margin-top:0;'>Pagamento Stripe richiesto per il piano {safe_plan}</h2>
+                    <p style='color:#334155; font-size:14px;'>Abbiamo registrato la tua richiesta per <strong>{safe_email}</strong>. Il link di pagamento Stripe non è al momento configurato sul server: nessuna API Key è stata emessa prima del pagamento.</p>
+                    <a href='/' style='background:#1d4ed8; color:white; padding:12px 22px; text-decoration:none; border-radius:9px; font-weight:700; display:inline-block; margin-top:10px;'>Torna alla Home</a>
+                </div>
+            </body>
+            </html>
+            """,
+            status_code=503,
+        )
+
+    provisioned = await _provision_with_control_plane(clean_email, selected_plan)
     email_sent = await _send_transactional_email(
         provisioned["email"],
         provisioned["plan"],
@@ -730,28 +809,20 @@ async def gestisci_iscrizione(
     safe_email = html.escape(provisioned["email"])
     safe_key = html.escape(provisioned["api_key"])
     quota_fmt = f"{int(provisioned['monthly_quota']):,}".replace(",", ".")
-    dashboard_url = html.escape(os.environ.get("DASHBOARD_URL", "http://localhost:8501"))
+    resolved_dashboard = _resolve_dashboard_url()
+    dashboard_cta_html = (
+        f"<a href='{html.escape(resolved_dashboard)}' target='_blank' "
+        "style='background:#0b172a; color:white; padding:12px 22px; text-decoration:none; "
+        "border-radius:9px; font-weight:700; display:inline-block;'>Apri Console Analytics</a>"
+        if resolved_dashboard
+        else ""
+    )
 
     email_notice = (
         f"Copia inviata automaticamente anche via email a <strong>{safe_email}</strong>."
         if email_sent
         else f"Account salvato nel database per <strong>{safe_email}</strong>. Salva questa chiave qui sotto."
     )
-
-    stripe_cta_html = ""
-    if dati_validati.piano_scelto.value in {"pro", "agency"}:
-        checkout_info = await _create_stripe_checkout(
-            dati_validati.piano_scelto.value,
-            str(dati_validati.email),
-        )
-        checkout_url = checkout_info.get("checkout_url")
-        if checkout_url:
-            safe_checkout = html.escape(str(checkout_url))
-            stripe_cta_html = (
-                f"<a href='{safe_checkout}' target='_blank' "
-                "style='background:#1d4ed8; color:white; padding:12px 22px; text-decoration:none; "
-                "border-radius:9px; font-weight:700; display:inline-block;'>Completa Pagamento su Stripe</a>"
-            )
 
     return HTMLResponse(
         f"""
@@ -799,8 +870,7 @@ async def gestisci_iscrizione(
                 </div>
 
                 <div style='display:flex; gap:12px; justify-content:center; flex-wrap:wrap;'>
-                    {stripe_cta_html}
-                    <a href='{dashboard_url}' target='_blank' style='background:#0b172a; color:white; padding:12px 22px; text-decoration:none; border-radius:9px; font-weight:700; display:inline-block;'>Apri Console Analytics</a>
+                    {dashboard_cta_html}
                     <a href='/' style='background:#059669; color:white; padding:12px 22px; text-decoration:none; border-radius:9px; font-weight:700; display:inline-block;'>Torna alla Home</a>
                 </div>
             </div>

@@ -320,8 +320,8 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                     json={"email": "cto@agency.io", "piano_scelto": "agency"},
                 )
                 self.assertEqual(r_agency_signup.status_code, 200)
-                self.assertTrue(r_agency_signup.json()["api_key"].startswith("sk_live_"))
-                self.assertEqual(r_agency_signup.json()["monthly_quota"], 2_500_000)
+                self.assertEqual(r_agency_signup.json()["status"], "payment_required")
+                self.assertNotIn("api_key", r_agency_signup.json())
 
                 # Mandatory transactional email check on /api/v1/checkout
                 r_chk_no_email = await client.post(
@@ -332,9 +332,13 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
 
                 # Payment Link Checkout & Customer Portal resolution
                 prev_pay_link = os.environ.get("STRIPE_AGENCY_PAYMENT_LINK")
+                prev_pro_link = os.environ.get("STRIPE_PRO_PAYMENT_LINK")
                 prev_portal_url = os.environ.get("STRIPE_CUSTOMER_PORTAL_URL")
+                prev_dashboard_url = os.environ.get("DASHBOARD_URL")
                 os.environ["STRIPE_AGENCY_PAYMENT_LINK"] = "https://buy.stripe.com/test_agency_plan"
+                os.environ["STRIPE_PRO_PAYMENT_LINK"] = "https://buy.stripe.com/test_pro_plan"
                 os.environ["STRIPE_CUSTOMER_PORTAL_URL"] = "https://billing.stripe.com/p/login/test_123"
+                os.environ.pop("DASHBOARD_URL", None)
                 try:
                     r_chk = await client.post(
                         "/api/v1/checkout",
@@ -344,6 +348,16 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(r_chk.json()["status"], "ready")
                     self.assertIn("prefilled_email=cto%40agency.io", r_chk.json()["checkout_url"])
 
+                    # Paid form submission redirects straight to Stripe (no API key before payment)
+                    r_paid_form = await client.post(
+                        "/api/v1/iscriviti",
+                        data={"email": "buyer@company.io", "piano_scelto": "pro"},
+                        follow_redirects=False,
+                    )
+                    self.assertEqual(r_paid_form.status_code, 303)
+                    self.assertIn("https://buy.stripe.com/test_pro_plan", r_paid_form.headers.get("location", ""))
+                    self.assertNotIn("sk_live_", r_paid_form.text)
+
                     r_portal = await client.post(
                         "/api/v1/stripe/portal",
                         json={"email": "cto@agency.io"},
@@ -351,30 +365,37 @@ class TestServicesIntegration(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(r_portal.status_code, 200)
                     self.assertEqual(r_portal.json()["status"], "ready")
                     self.assertIn("prefilled_email=cto%40agency.io", r_portal.json()["portal_url"])
+
+                    r_form = await client.post(
+                        "/api/v1/iscriviti",
+                        data={"email": "dev@startup.io", "piano_scelto": "free"},
+                    )
+                    self.assertEqual(r_form.status_code, 200)
+                    self.assertIn("sk_free_", r_form.text)
+                    self.assertNotIn("localhost:8501", r_form.text)
                 finally:
                     if prev_pay_link is None:
                         os.environ.pop("STRIPE_AGENCY_PAYMENT_LINK", None)
                     else:
                         os.environ["STRIPE_AGENCY_PAYMENT_LINK"] = prev_pay_link
+                    if prev_pro_link is None:
+                        os.environ.pop("STRIPE_PRO_PAYMENT_LINK", None)
+                    else:
+                        os.environ["STRIPE_PRO_PAYMENT_LINK"] = prev_pro_link
                     if prev_portal_url is None:
                         os.environ.pop("STRIPE_CUSTOMER_PORTAL_URL", None)
                     else:
                         os.environ["STRIPE_CUSTOMER_PORTAL_URL"] = prev_portal_url
+                    if prev_dashboard_url is not None:
+                        os.environ["DASHBOARD_URL"] = prev_dashboard_url
 
-                r_form = await client.post(
-                    "/api/v1/iscriviti",
-                    data={"email": "dev@startup.io", "piano_scelto": "free"},
-                )
-                self.assertEqual(r_form.status_code, 200)
-                self.assertIn("sk_free_", r_form.text)
-
-                # Verify SQLite persistence in Landing API database
+                # Verify SQLite persistence in Landing API database (only free keys issued before webhook)
                 from app.routers import api as landing_api_mod
 
                 with landing_api_mod._DB_LOCK:
                     keys_cnt = landing_api_mod._db_conn.execute("SELECT COUNT(*) FROM api_keys").fetchone()[0]
                     waitlist_cnt = landing_api_mod._db_conn.execute("SELECT COUNT(*) FROM waitlist").fetchone()[0]
-                self.assertGreaterEqual(keys_cnt, 3)
+                self.assertGreaterEqual(keys_cnt, 2)
                 self.assertGreaterEqual(waitlist_cnt, 4)
 
                 # 7. Signed Stripe Webhook lifecycle (reject unsigned, process valid upgrade/downgrade)

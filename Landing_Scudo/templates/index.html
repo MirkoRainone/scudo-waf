@@ -592,11 +592,11 @@
             if (piano === 'pro' || piano === 'agency') {
                 const label = piano === 'agency' ? 'Agency / Team (€149/mese)' : 'Pro Cloud (€29/mese)';
                 if (hintEl) {
-                    hintEl.innerHTML = '<i class="bi bi-envelope-exclamation me-1"></i> <strong>Email transazionale obbligatoria:</strong> inserisci il tuo indirizzo qui sotto per associare e ricevere la tua API Key prima di completare il pagamento per il piano <strong>' + escapeHtml(label) + '</strong> su Stripe.';
+                    hintEl.innerHTML = '<i class="bi bi-envelope-exclamation me-1"></i> <strong>Email transazionale obbligatoria:</strong> inserisci il tuo indirizzo qui sotto e procedi su Stripe per il piano <strong>' + escapeHtml(label) + '</strong>. La tua API Key verrà generata e inviata a questa email subito dopo la conferma del pagamento.';
                     hintEl.classList.remove('d-none');
                 }
                 if (submitBtn) {
-                    submitBtn.innerHTML = 'Salva Email &amp; Vai a Stripe <i class="bi bi-arrow-right ms-1"></i>';
+                    submitBtn.innerHTML = 'Procedi al Pagamento Stripe <i class="bi bi-arrow-right ms-1"></i>';
                 }
             } else {
                 if (hintEl) hintEl.classList.add('d-none');
@@ -605,6 +605,21 @@
                 }
             }
         }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const checkoutStatus = params.get('checkout');
+            const hintEl = document.getElementById('checkout-hint');
+            if (checkoutStatus === 'success' && hintEl) {
+                hintEl.className = 'alert alert-success py-2 small';
+                hintEl.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> <strong>Pagamento confermato!</strong> La tua licenza Scudo WAF è stata attivata: controlla la tua email transazionale per ricevere la API Key.';
+                const formSection = document.getElementById('form-iscrizione');
+                if (formSection) formSection.scrollIntoView({ behavior: 'smooth' });
+            } else if (checkoutStatus === 'cancelled' && hintEl) {
+                hintEl.className = 'alert alert-warning py-2 small';
+                hintEl.innerHTML = '<i class="bi bi-info-circle me-1"></i> Pagamento annullato su Stripe: nessun addebito effettuato e nessuna API Key a pagamento è stata emessa.';
+            }
+        });
 
         function scegliPiano(piano) {
             const radioId = piano === 'agency' ? 'piano_agency' : (piano === 'pro' ? 'piano_pro' : 'piano_free');
